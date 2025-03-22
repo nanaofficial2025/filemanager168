@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>File Manager</title>
+  <style>
+    body {
+      font-family: 'Georgia', serif;
+      background-color: #1f2e39;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      padding: 20px;
+      text-align: center;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .container {
+      padding: 20px;
+      background-color: white;
+      color: black;
+    }
+    input[type="file"], button {
+      margin: 5px;
+      padding: 8px 12px;
+      font-size: 16px;
+    }
+    #progress-bar {
+      background-color: #1f2e39;
+      width: 400px;
+      height: 20px;
+      border-radius: 3px;
+      margin-top: 10px;
+    }
+    #progress-bar-fill {
+      height: 100%;
+      background-color: #87cefa;
+      text-align: center;
+      color: black;
+    }
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      background-color: #2c4a5a;
+      color: white;
+      text-align: left;
+      border: 1px solid #1f2e39;
+    }
+    button.action {
+      margin: 0 3px;
+    }
+  </style>
+</head>
+<body>
+
+<header>FILE MANAGER</header>
+
+<div class="container">
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload</button>
+
+  <div id="progress-bar">
+    <div id="progress-bar-fill">0%</div>
+  </div>
+
+  <table id="fileTable">
+    <thead>
+      <tr>
+        <th>file name</th>
+        <th>share links</th>
+        <th>download</th>
+        <th>delete file</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+  async function fetchFiles() {
+    const res = await fetch('/files');
+    const files = await res.json();
+    const tbody = document.querySelector("#fileTable tbody");
+    tbody.innerHTML = "";
+    files.forEach(filename => {
+      const row = document.createElement("tr");
+
+      const nameCell = document.createElement("td");
+      nameCell.textContent = filename;
+
+      const shareBtn = document.createElement("button");
+      shareBtn.className = "action";
+      shareBtn.textContent = "share links";
+      shareBtn.onclick = async () => {
+        const res = await fetch(`/share/${filename}`);
+        const data = await res.json();
+        prompt("Shareable Link:", data.shareable_link);
+      };
+
+      const downloadBtn = document.createElement("button");
+      downloadBtn.className = "action";
+      downloadBtn.textContent = "download";
+      downloadBtn.onclick = () => window.open(`/download/${filename}`);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "action";
+      deleteBtn.textContent = "delete file";
+      deleteBtn.onclick = async () => {
+        await fetch(`/delete/${filename}`, { method: 'DELETE' });
+        fetchFiles();
+      };
+
+      const shareCell = document.createElement("td");
+      const downloadCell = document.createElement("td");
+      const deleteCell = document.createElement("td");
+
+      shareCell.appendChild(shareBtn);
+      downloadCell.appendChild(downloadBtn);
+      deleteCell.appendChild(deleteBtn);
+
+      row.appendChild(nameCell);
+      row.appendChild(shareCell);
+      row.appendChild(downloadCell);
+      row.appendChild(deleteCell);
+
+      tbody.appendChild(row);
+    });
+  }
+
+  function uploadFile() {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    if (!file) return alert("No file selected!");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/upload", true);
+
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        const bar = document.getElementById("progress-bar-fill");
+        bar.style.width = percent + "%";
+        bar.textContent = percent + "%";
+      }
+    };
+
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        document.getElementById("progress-bar-fill").style.width = "0%";
+        document.getElementById("progress-bar-fill").textContent = "0%";
+        fileInput.value = "";
+        fetchFiles();
+      } else {
+        alert("Upload failed!");
+      }
+    };
+
+    xhr.send(formData);
+  }
+
+  window.onload = fetchFiles;
+</script>
+
+</body>
+</html>
